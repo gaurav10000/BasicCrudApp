@@ -1,5 +1,6 @@
 
 const User = require('../models/userModel.js')
+const {registerfieldChecker, loginfieldChecker} =  require('../middlewares/middlewares.js')
 
 
 exports.home =  (req, res) => {
@@ -10,11 +11,13 @@ exports.register = async (req, res) => {
     // extract info first from req.body
     try{
         const {name, email, password} = req.body
-        
-        // make a middleware here to check if user exists already or not
-        // if user exists, return error
-        // also make a middleware to check if all fields are filled or not
-        // if not, return error
+        // check if all fields are filled usign middleware
+        if(!fieldChecker(req.body)) {
+            return res.status(400).json({
+                msg: "All input fields are required"
+            })
+        }
+
         const user = await User.create({
             name: name,
             email: email,
@@ -28,7 +31,13 @@ exports.register = async (req, res) => {
         })
 
     } catch(error){
-        console.log(error);
+        if(error.code == 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "Email already exists",
+                error
+            })
+        }
         res.status(400).json({
             success: false,
             message: "User not created",
@@ -37,4 +46,43 @@ exports.register = async (req, res) => {
     }
 }
 
+exports.login = async (req, res) => {
+    const {email, password} = req.body
+
+    try {
+        // check if all fields are filled usign middleware
+        console.log("beforefiledchecker");
+        if(!loginfieldChecker(req.body)) {
+            console.log("in field checker");
+            return res.status(400).json({
+                msg: "All input fields are required"
+            })
+        }
+        // check if user exists
+        console.log("before user");
+        const user = await User.findOne({email}).select("+password")
+        console.log("here");
+        if(!user) {
+            console.log("here2");
+            return res.status(400).json({
+                success: false,
+                msg: "No account associated with this mail",
+            })
+        }
+        // check if password is correct
+        console.log(user.password);
+        res.status(200).json({
+            success: true,
+            msg: "User logged in successfully",
+            user
+        })
+
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            msg: "User not logged in",
+            error
+        })
+    }
+}
 
