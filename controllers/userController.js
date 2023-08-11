@@ -1,7 +1,7 @@
 
 const User = require('../models/userModel.js')
 const {registerfieldChecker, loginfieldChecker} =  require('../middlewares/middlewares.js')
-
+const bcrypt = require('bcrypt')
 
 exports.home =  (req, res) => {
     res.status(202).json({message: 'This is no page ', status: 200})
@@ -12,16 +12,18 @@ exports.register = async (req, res) => {
     try{
         const {name, email, password} = req.body
         // check if all fields are filled usign middleware
-        if(!fieldChecker(req.body)) {
+        // console.log(req.body);
+        if(!registerfieldChecker(req.body)) {
             return res.status(400).json({
                 msg: "All input fields are required"
             })
         }
-
+        const salt = await bcrypt.genSalt(10)
+        const hashedPassword = await bcrypt.hashSync(password, salt)
         const user = await User.create({
             name: name,
             email: email,
-            password: password
+            password: hashedPassword
         })
 
         res.status(201).json({
@@ -51,31 +53,42 @@ exports.login = async (req, res) => {
 
     try {
         // check if all fields are filled usign middleware
-        console.log("beforefiledchecker");
         if(!loginfieldChecker(req.body)) {
             console.log("in field checker");
             return res.status(400).json({
                 msg: "All input fields are required"
             })
         }
+        console.log("field checker passed");
         // check if user exists
         console.log("before user");
         const user = await User.findOne({email}).select("+password")
         console.log("here");
         if(!user) {
-            console.log("here2");
             return res.status(400).json({
                 success: false,
                 msg: "No account associated with this mail",
             })
         }
-        // check if password is correct
+        console.log("user found");
         console.log(user.password);
-        res.status(200).json({
-            success: true,
-            msg: "User logged in successfully",
-            user
-        })
+        console.log(password);
+        // check if password is correct
+        const isPasswordCorrect = await bcrypt.compareSync(password, user.password)
+        
+        if(isPasswordCorrect) {
+            return res.status(200).json({
+                success: true,
+                msg: "User logged in successfully",
+            })
+        }else{
+            return res.status(400).json({
+                success: false,
+                msg: "Password incorrect",
+            })
+        }
+
+        
 
     } catch (error) {
         res.status(400).json({
